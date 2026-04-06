@@ -1,5 +1,6 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+st.write("Secrets loaded:", "google" in st.secrets)
 st.set_page_config(
     page_title="HR Assistant AI",
     page_icon="🏢",
@@ -28,7 +29,7 @@ from transformers import pipeline
 # CONFIG
 # ------------------------
 GOOGLE_DRIVE_FOLDER_ID = "1j5btciU2XzsdVuwjBwp-rjg7RFuxhslG"
-SERVICE_ACCOUNT_FILE = "service_account.json"
+
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 METADATA_FILE = "doc_metadata.json"
 
@@ -165,7 +166,6 @@ def sync_google_drive():
 # ------------------------
 # PAGE CONFIG + STYLE
 # ------------------------
-st.set_page_config(page_title="HR Chatbot", page_icon="🗨️")
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg,#0f172a,#020617); color:white;}
