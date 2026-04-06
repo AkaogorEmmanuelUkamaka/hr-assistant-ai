@@ -111,7 +111,6 @@ def get_drive_service():
         scopes=SCOPES
     )
     return build("drive", "v3", credentials=creds)
-
 def fetch_drive_files():
     service = get_drive_service()
     results = service.files().list(
