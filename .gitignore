@@ -1,0 +1,6 @@
+service_account.json
+faiss_index/
+doc_metadata.json
+__pycache__/
+*.pyc
+.env
