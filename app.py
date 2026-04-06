@@ -257,7 +257,7 @@ vectorstore = load_vectorstore()
 # ------------------------
 # AUTO SYNC GOOGLE DRIVE
 # ------------------------
-if os.path.exists("service_account.json"):
+if "google" in st.secrets:
     if "sync_started" not in st.session_state:
         st.session_state.sync_started = True
         threading.Thread(target=sync_google_drive, daemon=True).start()
@@ -279,7 +279,7 @@ with st.sidebar:
     else:
         st.warning("🟡 Knowledge Base: Not Built")
 
-    if os.path.exists("service_account.json"):
+    if "google" in st.secrets:
         st.success("🟢 Google Drive Sync: Connected")
     else:
         st.info("⚪ Google Drive Sync: Not Connected")
@@ -321,7 +321,7 @@ with st.sidebar:
         st.info("🛠️ Admin Mode: Manage documents and sync knowledge base.")
 
         # Google Drive sync button
-        if os.path.exists("service_account.json"):
+        if "google" in st.secrets:
             if st.button("🔄 Sync Google Drive"):
                 sync_google_drive_threaded()
 
