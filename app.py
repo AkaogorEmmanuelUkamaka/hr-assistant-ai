@@ -106,8 +106,8 @@ def save_metadata(metadata):
 # GOOGLE DRIVE
 # ------------------------
 def get_drive_service():
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["google"],
         scopes=SCOPES
     )
     return build("drive", "v3", credentials=creds)
