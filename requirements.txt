@@ -1,0 +1,14 @@
+streamlit
+transformers
+torch
+langchain
+langchain-community
+langchain-huggingface
+faiss-cpu
+google-api-python-client
+google-auth
+speechrecognition
+pyttsx3
+pypdf
+python-docx
+docx2txt
