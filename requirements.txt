@@ -12,3 +12,4 @@ pyttsx3
 pypdf
 python-docx
 docx2txt
+sentence-transformers
