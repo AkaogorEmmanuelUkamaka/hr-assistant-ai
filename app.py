@@ -112,12 +112,14 @@ def get_drive_service():
     )
     return build("drive", "v3", credentials=creds)
 
-def fetch_drive_files():
-    service = get_drive_service()
-    results = service.files().list(
+def list_files():
+    results = drive_service.files().list(
         q=f"'{GOOGLE_DRIVE_FOLDER_ID}' in parents and trashed=false",
-        fields="files(id, name)"
+        fields="files(id, name)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
     ).execute()
+
     return results.get("files", [])
 
 def download_file(file_id):
@@ -130,7 +132,7 @@ def sync_google_drive_threaded():
 
 def sync_google_drive():
     global vectorstore
-    drive_files = fetch_drive_files()
+    drive_files = list_files()
     existing_metadata = load_metadata()
     docs, new_metadata, changes_detected = [], {}, False
 
