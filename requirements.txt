@@ -1,0 +1,12 @@
+streamlit==1.26.1
+transformers==4.35.0
+torch==2.1.0
+langchain==0.1.15
+faiss-cpu==1.7.4
+google-api-python-client==2.95.0
+google-auth==2.22.0
+speechrecognition==3.8.1
+pyttsx3==2.90
+pypdf==3.15.1
+python-docx==0.8.11
+docx2txt==0.8
