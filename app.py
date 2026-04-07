@@ -1,5 +1,6 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+st.write("Secrets loaded:", "google" in st.secrets)
 st.set_page_config(
     page_title="HR Assistant AI",
     page_icon="🏢",
@@ -28,7 +29,7 @@ from transformers import pipeline
 # CONFIG
 # ------------------------
 GOOGLE_DRIVE_FOLDER_ID = "1j5btciU2XzsdVuwjBwp-rjg7RFuxhslG"
-SERVICE_ACCOUNT_FILE = "service_account.json"
+
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 METADATA_FILE = "doc_metadata.json"
 
@@ -106,14 +107,14 @@ def save_metadata(metadata):
 # GOOGLE DRIVE
 # ------------------------
 def get_drive_service():
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["google"],
         scopes=SCOPES
     )
     return build("drive", "v3", credentials=creds)
-
 def list_files():
-    results = drive_service.files().list(
+    service = get_drive_service()
+    results = service.files().list(
         q=f"'{GOOGLE_DRIVE_FOLDER_ID}' in parents and trashed=false",
         fields="files(id, name)",
         supportsAllDrives=True,
@@ -168,7 +169,6 @@ def sync_google_drive():
 # ------------------------
 # PAGE CONFIG + STYLE
 # ------------------------
-st.set_page_config(page_title="HR Chatbot", page_icon="🗨️")
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg,#0f172a,#020617); color:white;}
@@ -260,7 +260,7 @@ vectorstore = load_vectorstore()
 # ------------------------
 # AUTO SYNC GOOGLE DRIVE
 # ------------------------
-if os.path.exists("service_account.json"):
+if "google" in st.secrets:
     if "sync_started" not in st.session_state:
         st.session_state.sync_started = True
         threading.Thread(target=sync_google_drive, daemon=True).start()
@@ -282,7 +282,7 @@ with st.sidebar:
     else:
         st.warning("🟡 Knowledge Base: Not Built")
 
-    if os.path.exists("service_account.json"):
+    if "google" in st.secrets:
         st.success("🟢 Google Drive Sync: Connected")
     else:
         st.info("⚪ Google Drive Sync: Not Connected")
@@ -324,7 +324,7 @@ with st.sidebar:
         st.info("🛠️ Admin Mode: Manage documents and sync knowledge base.")
 
         # Google Drive sync button
-        if os.path.exists("service_account.json"):
+        if "google" in st.secrets:
             if st.button("🔄 Sync Google Drive"):
                 sync_google_drive_threaded()
 
