@@ -37,18 +37,23 @@ METADATA_FILE = "doc_metadata.json"
 # VOICE ENGINE
 # ------------------------
 import threading
-import pyttsx3
+try:
+    import pyttsx3
+    tts_available = True
+except:
+    tts_available = False
 import time  # keep this for later streaming effect
 
 def speak_text(text):
     def worker():
-        try:
-            engine = pyttsx3.init()
-            engine.setProperty('rate', 180)
-            engine.say(text)
-            engine.runAndWait()
-        except Exception as e:
-            print("TTS Error:", e)
+        if tts_available:
+            try:
+                engine = pyttsx3.init()
+                engine.setProperty('rate', 180)
+                engine.say(text)
+                engine.runAndWait()
+            except Exception as e:
+                print("TTS Error:", e)
 
     threading.Thread(target=worker, daemon=True).start()
 def voice_to_text():
