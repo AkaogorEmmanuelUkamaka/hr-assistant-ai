@@ -14,3 +14,4 @@ torch
 SpeechRecognition
 pydub
 docx2txt
+pypdf
