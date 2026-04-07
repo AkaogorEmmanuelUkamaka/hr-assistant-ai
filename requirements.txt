@@ -6,6 +6,7 @@ google-auth-oauthlib
 faiss-cpu
 langchain
 langchain-community
+langchain-huggingface
 tqdm
 transformers
 SpeechRecognition
