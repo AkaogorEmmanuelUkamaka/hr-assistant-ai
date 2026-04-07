@@ -13,3 +13,4 @@ sentence-transformers
 torch
 SpeechRecognition
 pydub
+docx2txt
