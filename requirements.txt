@@ -6,3 +6,4 @@ google-auth-oauthlib
 faiss-cpu
 langchain
 tqdm
+transformers
