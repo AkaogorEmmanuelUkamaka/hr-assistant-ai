@@ -9,4 +9,7 @@ langchain-community
 langchain-huggingface
 tqdm
 transformers
+sentence-transformers
+torch
 SpeechRecognition
+pydub
