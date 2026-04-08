@@ -331,6 +331,7 @@ with st.sidebar:
     st.markdown("---")
 
     # =========================
+# =========================
     # MODES (FIXED STRUCTURE)
     # =========================
 
@@ -366,13 +367,14 @@ with st.sidebar:
                 file_hash = get_file_hash(file_bytes)
                 new_metadata[file.name] = file_hash
 
-                if file.name not in existing_metadata or existing_metadata[file.name] != file_hash:
+                if file.name not in existing_metadata or existing_metadata.get(file.name) != file_hash:
                     changes_detected = True
 
                 with tempfile.NamedTemporaryFile(delete=False) as tmp:
                     tmp.write(file_bytes)
                     path = tmp.name
 
+                # Choose the right loader
                 if file.name.endswith(".pdf"):
                     loader = PyPDFLoader(path)
                 elif file.name.endswith(".txt"):
@@ -380,28 +382,34 @@ with st.sidebar:
                 else:
                     loader = Docx2txtLoader(path)
 
-                docs.extend(loader.load())
+                # ✅ IMPORTANT: This must be indented inside the 'for' loop
+                try:
+                    docs.extend(loader.load())
+                except Exception as e:
+                    st.error(f"Error loading {file.name}: {e}")
 
-if changes_detected:
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50
-    )
+            # ✅ IMPORTANT: This must be indented inside 'if uploaded_files' 
+            # but OUTSIDE the 'for' loop
+            if changes_detected and docs:
+                with st.spinner("Updating knowledge base..."):
+                    splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=500,
+                        chunk_overlap=50
+                    )
 
-    chunks = splitter.split_documents(docs)
+                    chunks = splitter.split_documents(docs)
 
-    st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
-    st.session_state.vectorstore.save_local("faiss_index")
+                    st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+                    st.session_state.vectorstore.save_local("faiss_index")
 
-    save_metadata(new_metadata)
+                    save_metadata(new_metadata)
 
-    st.success("Knowledge base updated ✅")
+                    st.success("Knowledge base updated ✅")
+                    st.rerun() 
 
-    st.rerun() 
-
-    # ===== FOOTER VERSION BADGE =====
+    # ===== FOOTER VERSION BADGE (Indented to stay in sidebar) =====
     st.markdown("---")
-    st.caption("HR Assistant v1.1 • Voice + Google Drive Sync • Built with Streamlit, FAISS & LangChain") 
+    st.caption("HR Assistant v1.1 • Voice + Google Drive Sync • Built with Streamlit, FAISS & LangChain")
    
 # ------------------------
 # PROMPT TEMPLATE
