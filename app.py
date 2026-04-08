@@ -137,7 +137,7 @@ def sync_google_drive_threaded():
     threading.Thread(target=sync_google_drive).start()
 
 def sync_google_drive():
-    global vectorstore
+    
     drive_files = list_files()
     existing_metadata = load_metadata()
     docs, new_metadata, changes_detected = [], {}, False
@@ -166,10 +166,10 @@ def sync_google_drive():
     if changes_detected:
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = splitter.split_documents(docs)
-        vectorstore = FAISS.from_documents(chunks, embeddings)
-        vectorstore.save_local("faiss_index")
+        st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+        st.session_state.vectorstore.save_local("faiss_index")
         save_metadata(new_metadata)
-        st.success("📚 Google Drive synced & Knowledge Base updated ✅")
+        print("Google Drive synced")
 
 # ------------------------
 # PAGE CONFIG + STYLE
@@ -194,6 +194,8 @@ st.markdown("<div class='subtitle'>Ask questions via text or voice</div>", unsaf
 # ------------------------
 # SESSION STATE
 # ------------------------
+if "vectorstore" not in st.session_state:
+    st.session_state.vectorstore = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -260,7 +262,8 @@ def load_vectorstore():
         return FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     return None
 
-vectorstore = load_vectorstore()
+if st.session_state.vectorstore is None:
+    st.session_state.vectorstore = load_vectorstore()
 
 # ------------------------
 # AUTO SYNC GOOGLE DRIVE
@@ -271,7 +274,6 @@ if "google" in st.secrets:
         threading.Thread(target=sync_google_drive, daemon=True).start()
 
 # ------------------------
-# ------------------------
 # SIDEBAR
 # ------------------------
 with st.sidebar:
@@ -281,7 +283,7 @@ with st.sidebar:
     mode = st.radio("Access mode", ["Employee", "Admin"])
     st.markdown("---")
 
-    # ===== SYSTEM STATUS BADGES =====
+    # ===== SYSTEM STATUS =====
     if os.path.exists("faiss_index"):
         st.success("🟢 Knowledge Base: Ready")
     else:
@@ -292,22 +294,20 @@ with st.sidebar:
     else:
         st.info("⚪ Google Drive Sync: Not Connected")
 
-    # ===== DOCUMENT STATUS BADGE =====
-    if os.path.exists("faiss_index"):
+    # ===== DOCUMENT COUNT =====
+    if os.path.exists("faiss_index") and st.session_state.vectorstore:
         try:
-            doc_count = len(vectorstore.docstore._dict)
+            doc_count = len(st.session_state.vectorstore.docstore._dict)
         except:
             doc_count = "Unknown"
 
-        last_sync = get_last_sync_time()
         st.success(f"📄 Documents Indexed: {doc_count}")
-        st.caption(f"Last Updated: {last_sync}")
     else:
         st.info("📄 Documents Indexed: 0")
 
     st.markdown("---")
 
-    # ===== CLEAR CHAT HISTORY (ALL USERS) =====
+    # ===== CLEAR CHAT =====
     if st.button("🧹 Clear Chat History"):
         st.session_state.messages = []
         st.session_state.chat_history = []
@@ -315,7 +315,10 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ===== EMPLOYEE MODE =====
+    # =========================
+    # MODES (FIXED STRUCTURE)
+    # =========================
+
     if mode == "Employee":
         st.info("👤 Employee Mode: Ask questions and view policies only.")
 
@@ -324,16 +327,15 @@ with st.sidebar:
         else:
             st.warning("📂 Knowledge Base not ready")
 
-    # ===== ADMIN MODE =====
     elif mode == "Admin":
         st.info("🛠️ Admin Mode: Manage documents and sync knowledge base.")
 
-        # Google Drive sync button
+        # 🔄 Sync button
         if "google" in st.secrets:
             if st.button("🔄 Sync Google Drive"):
                 sync_google_drive_threaded()
 
-        # Upload documents
+        # 📤 Upload
         uploaded_files = st.file_uploader(
             "Upload HR docs",
             type=["pdf", "txt", "docx"],
@@ -372,14 +374,17 @@ with st.sidebar:
                 )
 
                 chunks = splitter.split_documents(docs)
-                vectorstore = FAISS.from_documents(chunks, embeddings)
-                vectorstore.save_local("faiss_index")
+
+                st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+                st.session_state.vectorstore.save_local("faiss_index")
+
                 save_metadata(new_metadata)
+
                 st.success("Knowledge base updated ✅")
 
     # ===== FOOTER VERSION BADGE =====
     st.markdown("---")
-    st.caption("HR Assistant v1.1 • Voice + Google Drive Sync • Built with Streamlit, FAISS & LangChain")
+    st.caption("HR Assistant v1.1 • Voice + Google Drive Sync • Built with Streamlit, FAISS & LangChain") 
    
 # ------------------------
 # PROMPT TEMPLATE
@@ -401,10 +406,10 @@ prompt = PromptTemplate(template=prompt_template, input_variables=["context","qu
 # QA ENGINE
 # ------------------------
 def get_answer(query):
-    if vectorstore is None:
+    if st.session_state.vectorstore is None:
         return "Please upload documents first.", []
 
-    docs_scores = vectorstore.similarity_search_with_score(query, k=6)
+    docs_scores = st.session_state.vectorstore.similarity_search_with_score(query, k=6)
     filtered = [d for d, s in docs_scores if s < 1.2]
 
     if not filtered:
@@ -501,9 +506,9 @@ if query:
 # ------------------------
 # ANALYTICS
 # ------------------------
-if vectorstore:
+if st.session_state.vectorstore:
     col1, col2, col3 = st.columns(3)
-    col1.metric("Docs", len(vectorstore.docstore._dict))
+    col1.metric("Docs", len(st.session_state.vectorstore.docstore._dict))
     col2.metric("Model", "MiniLM")
     col3.metric("Questions", st.session_state.question_count)
     with st.expander("Analytics"): st.bar_chart(st.session_state.category_stats)
