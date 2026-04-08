@@ -137,7 +137,6 @@ def sync_google_drive_threaded():
     threading.Thread(target=sync_google_drive).start()
 
 def sync_google_drive():
-    
     drive_files = list_files()
     existing_metadata = load_metadata()
     docs, new_metadata, changes_detected = [], {}, False
@@ -161,15 +160,22 @@ def sync_google_drive():
         else:
             loader = Docx2txtLoader(path)
 
-        docs.extend(loader.load())
+        try:
+            docs.extend(loader.load())
+        except Exception as e:
+            print(f"Error loading {file['name']}: {e}")
 
-    if changes_detected:
+    if changes_detected and docs:
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = splitter.split_documents(docs)
-        st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
-        st.session_state.vectorstore.save_local("faiss_index")
+
+        # ✅ ONLY SAVE (NO session_state here)
+        vstore = FAISS.from_documents(chunks, embeddings)
+        vstore.save_local("faiss_index")
+
         save_metadata(new_metadata)
-        print("Google Drive synced")
+
+        print("✅ FAISS index saved to disk")
 
 # ------------------------
 # PAGE CONFIG + STYLE
@@ -256,14 +262,23 @@ llm = load_llm()
 # ------------------------
 # VECTORSTORE
 # ------------------------
-@st.cache_resource
-def load_vectorstore():
-    if os.path.exists("faiss_index"):
-        return FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-    return None
+# ------------------------
+# VECTORSTORE (FIXED)
+# ------------------------
+if "vectorstore" not in st.session_state:
+    st.session_state.vectorstore = None
 
-if st.session_state.vectorstore is None:
-    st.session_state.vectorstore = load_vectorstore()
+# ✅ Load from disk if exists
+if os.path.exists("faiss_index"):
+    try:
+        st.session_state.vectorstore = FAISS.load_local(
+            "faiss_index",
+            embeddings,
+            allow_dangerous_deserialization=True
+        )
+    except Exception as e:
+        st.error(f"Error loading index: {e}")
+
 
 # ------------------------
 # AUTO SYNC GOOGLE DRIVE
@@ -367,20 +382,22 @@ with st.sidebar:
 
                 docs.extend(loader.load())
 
-            if changes_detected:
-                splitter = RecursiveCharacterTextSplitter(
-                    chunk_size=500,
-                    chunk_overlap=50
-                )
+if changes_detected:
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50
+    )
 
-                chunks = splitter.split_documents(docs)
+    chunks = splitter.split_documents(docs)
 
-                st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
-                st.session_state.vectorstore.save_local("faiss_index")
+    st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+    st.session_state.vectorstore.save_local("faiss_index")
 
-                save_metadata(new_metadata)
+    save_metadata(new_metadata)
 
-                st.success("Knowledge base updated ✅")
+    st.success("Knowledge base updated ✅")
+
+    st.rerun() 
 
     # ===== FOOTER VERSION BADGE =====
     st.markdown("---")
