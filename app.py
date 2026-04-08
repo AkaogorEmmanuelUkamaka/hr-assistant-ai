@@ -16,8 +16,6 @@ import threading
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
-import speech_recognition as sr
-
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -33,54 +31,7 @@ GOOGLE_DRIVE_FOLDER_ID = "1j5btciU2XzsdVuwjBwp-rjg7RFuxhslG"
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 METADATA_FILE = "doc_metadata.json"
 
-# ------------------------
-# VOICE ENGINE
-# ------------------------
-import threading
-try:
-    import pyttsx3
-    tts_available = True
-except:
-    tts_available = False
 import time  # keep this for later streaming effect
-
-def speak_text(text):
-    def worker():
-        if tts_available:
-            try:
-                engine = pyttsx3.init()
-                engine.setProperty('rate', 180)
-                engine.say(text)
-                engine.runAndWait()
-            except Exception as e:
-                print("TTS Error:", e)
-
-    threading.Thread(target=worker, daemon=True).start()
-def voice_to_text():
-    recognizer = sr.Recognizer()
-
-    try:
-        with sr.Microphone() as source:
-            st.info("🎤 Listening...")
-
-            audio = recognizer.listen(source, timeout=5)
-
-        return recognizer.recognize_google(audio)
-
-    except:
-        return None
-
-def hands_free_mode():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 Hands-free mode ON... Speak anytime")
-        while st.session_state.hands_free:
-            try:
-                audio = recognizer.listen(source, timeout=5)
-                st.session_state.voice_input = recognizer.recognize_google(audio)
-                break
-            except:
-                continue
 
 # ------------------------
 # HASHING + METADATA
@@ -190,13 +141,20 @@ st.markdown("""
 
 st.markdown("""
 <div style="background: rgba(255,255,255,0.04); padding:12px; border-radius:12px; text-align:center; margin-bottom:10px; font-size:14px; color:#94a3b8;">
-Internal HR Knowledge Assistant • Voice Enabled AI Mode
+Internal HR Knowledge Assistant
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("<h1 style='text-align:center'>🗨️ HR AI Assistant</h1>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Ask questions via text or voice</div>", unsafe_allow_html=True)
-
+st.caption("🚀 Coming in v2: Voice interaction, Slack integration, and advanced analytics")
+st.markdown("<div class='subtitle'>Ask questions via text</div>", unsafe_allow_html=True)
+with st.expander("🚀 Roadmap"):
+    st.markdown("""
+    - 🎤 Voice interaction (speech-to-text + audio responses)
+    - 💬 Slack / Teams integration
+    - 🔐 Employee authentication
+    - 📊 Advanced HR analytics dashboard
+    """)
 # ------------------------
 # SESSION STATE
 # ------------------------
@@ -218,12 +176,6 @@ if "category_stats" not in st.session_state:
         "Attendance": 0,
         "Other": 0
     }
-
-if "voice_input" not in st.session_state:
-    st.session_state.voice_input = None
-
-if "hands_free" not in st.session_state:
-    st.session_state.hands_free = False
 
 # ------------------------
 # CLASSIFIER
@@ -409,7 +361,7 @@ with st.sidebar:
 
     # ===== FOOTER VERSION BADGE (Indented to stay in sidebar) =====
     st.markdown("---")
-    st.caption("HR Assistant v1.1 • Voice + Google Drive Sync • Built with Streamlit, FAISS & LangChain")
+    st.caption("HR Assistant v1.1 • Google Drive Sync • Built with Streamlit, FAISS & LangChain")
    
 # ------------------------
 # PROMPT TEMPLATE
@@ -484,23 +436,7 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-col1, col2, col3 = st.columns([6,1,1])
-with col2:
-    if st.button("🎤"):
-        spoken = voice_to_text()
-        if spoken: st.session_state.voice_input = spoken
-with col3:
-    if st.button("🔁"):
-        st.session_state.hands_free = not st.session_state.hands_free
-        if st.session_state.hands_free: threading.Thread(target=hands_free_mode, daemon=True).start()
-
 query = st.chat_input("Ask HR anything...")
-if st.session_state.voice_input:
-    query = st.session_state.voice_input
-    st.session_state.voice_input = None
-    st.session_state.input_mode = "voice"
-else:
-    st.session_state.input_mode = "text"
 
 if query:
     st.session_state.messages.append({"role": "user", "content": query})
@@ -515,11 +451,7 @@ if query:
         answer, sources = get_answer(query)
 
         placeholder.markdown(answer)
-
-        # 🔊 Speak ONLY if voice input
-        if st.session_state.get("input_mode") == "voice":
-            speak_text(answer)
-
+        
         # 📚 Show sources safely
         if sources:
             with st.expander("Sources"):
