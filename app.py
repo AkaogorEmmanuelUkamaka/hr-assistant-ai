@@ -1,6 +1,6 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-st.write("Secrets loaded:", "google" in st.secrets)
+
 st.set_page_config(
     page_title="HR Assistant AI",
     page_icon="🏢",
