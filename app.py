@@ -147,7 +147,11 @@ Internal HR Knowledge Assistant
 
 st.markdown("<h1 style='text-align:center'>🗨️ HR AI Assistant</h1>", unsafe_allow_html=True)
 st.caption("🚀 Coming in v2: Voice interaction, Slack integration, and advanced analytics")
-st.markdown("<div class='subtitle'>Ask questions via text</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='subtitle'>This assistant is designed for company HR-related queries only. Responses are based strictly on available internal documents.</div>",
+    unsafe_allow_html=True
+)
+
 with st.expander("🚀 Roadmap"):
     st.markdown("""
     - 🎤 Voice interaction (speech-to-text + audio responses)
