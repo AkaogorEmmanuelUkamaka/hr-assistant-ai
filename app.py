@@ -35,7 +35,7 @@ GOOGLE_DRIVE_FOLDER_ID = "1j5btciU2XzsdVuwjBwp-rjg7RFuxhslG"
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 METADATA_FILE = "doc_metadata.json"
 
-import time  # keep this for later streaming effect
+import time  
 
 # ------------------------
 # HASHING + METADATA
@@ -151,7 +151,7 @@ def sync_google_drive():
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = splitter.split_documents(docs)
 
-        # ✅ ONLY SAVE (NO session_state here)
+        #ONLY SAVE (NO session_state here)
         vstore = FAISS.from_documents(chunks, embeddings)
         vstore.save_local("faiss_index")
 
@@ -369,13 +369,13 @@ with st.sidebar:
                 else:
                     loader = Docx2txtLoader(path)
 
-                # ✅ IMPORTANT: This must be indented inside the 'for' loop
+                #IMPORTANT: This must be indented inside the 'for' loop
                 try:
                     docs.extend(loader.load())
                 except Exception as e:
                     st.error(f"Error loading {file.name}: {e}")
 
-            # ✅ IMPORTANT: This must be indented inside 'if uploaded_files' 
+            #IMPORTANT: This must be indented inside 'if uploaded_files' 
             # but OUTSIDE the 'for' loop
             if changes_detected and docs:
                 with st.spinner("Updating knowledge base..."):
