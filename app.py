@@ -443,11 +443,20 @@ for msg in st.session_state.messages:
 query = st.chat_input("Ask HR anything...")
 
 if query:
+    # Save user message
     st.session_state.messages.append({"role": "user", "content": query})
 
+    # ✅ Track usage
+    st.session_state.question_count += 1
+
+    category = classify_question(query)
+    st.session_state.category_stats[category] += 1
+
+    # Show user message
     with st.chat_message("user"):
         st.write(query)
 
+    # Generate assistant response
     with st.chat_message("assistant"):
         placeholder = st.empty()
         placeholder.markdown("🤖 Thinking...")
@@ -455,24 +464,88 @@ if query:
         answer, sources = get_answer(query)
 
         placeholder.markdown(answer)
-        
+
         # 📚 Show sources safely
         if sources:
             with st.expander("Sources"):
                 for d in sources:
                     st.write(d.page_content[:300])
 
+    # Save assistant message
     st.session_state.messages.append({"role": "assistant", "content": answer})
-
 # ------------------------
 # ANALYTICS
 # ------------------------
 if st.session_state.vectorstore:
+
     col1, col2, col3 = st.columns(3)
     col1.metric("Docs", len(st.session_state.vectorstore.docstore._dict))
     col2.metric("Model", "MiniLM")
     col3.metric("Questions", st.session_state.question_count)
-    with st.expander("Analytics"): st.bar_chart(st.session_state.category_stats)
+
+    import pandas as pd
+    from collections import Counter
+
+    with st.expander("📊 Analytics Dashboard", expanded=True):
+
+        # -----------------------
+        # CATEGORY DISTRIBUTION
+        # -----------------------
+        st.subheader("📊 Question Categories")
+
+        df = pd.DataFrame(
+            list(st.session_state.category_stats.items()),
+            columns=["Category", "Count"]
+        ).set_index("Category")
+
+        st.bar_chart(df)
+
+        # -----------------------
+        # MOST SEARCHED CATEGORY
+        # -----------------------
+        st.subheader("🏆 Most Asked Category")
+
+        if sum(st.session_state.category_stats.values()) > 0:
+            top_category = max(
+                st.session_state.category_stats,
+                key=st.session_state.category_stats.get
+            )
+            top_value = st.session_state.category_stats[top_category]
+
+            st.success(f"🔥 {top_category} ({top_value} questions)")
+        else:
+            st.info("No data yet")
+
+        # -----------------------
+        # TOP QUESTIONS
+        # -----------------------
+        st.subheader("💬 Top Asked Questions")
+
+        user_questions = [
+            msg["content"]
+            for msg in st.session_state.messages
+            if msg["role"] == "user"
+        ]
+
+        if user_questions:
+            top_q = Counter(user_questions).most_common(5)
+
+            for q, count in top_q:
+                st.write(f"• {q} ({count}x)")
+        else:
+            st.info("No questions asked yet")
+
+        # -----------------------
+        # SESSION SUMMARY
+        # -----------------------
+        st.subheader("📈 Session Summary")
+
+        total_q = st.session_state.question_count
+        unique_q = len(set(user_questions))
+
+        colA, colB = st.columns(2)
+        colA.metric("Total Questions", total_q)
+        colB.metric("Unique Questions", unique_q)
 
 # ------------------------
 # FOOTER
