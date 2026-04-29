@@ -1,6 +1,10 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
+import pandas as pd
+from collections import Counter
+from datetime import datetime
+
 st.set_page_config(
     page_title="HR Assistant AI",
     page_icon="🏢",
@@ -58,6 +62,33 @@ def save_metadata(metadata):
 
     with open(METADATA_FILE, "w") as f:
         json.dump(metadata, f, indent=2)
+        # ------------------------
+# ANALYTICS STORAGE
+# ------------------------
+ANALYTICS_FILE = "analytics.json"
+
+
+def load_analytics():
+    if os.path.exists(ANALYTICS_FILE):
+        with open(ANALYTICS_FILE, "r") as f:
+            return json.load(f)
+
+    return {
+        "total_questions": 0,
+        "daily_usage": {},
+        "categories": {
+            "Leave": 0,
+            "Benefits": 0,
+            "Attendance": 0,
+            "Other": 0
+        },
+        "questions": []
+    }
+
+
+def save_analytics(data):
+    with open(ANALYTICS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
 # ------------------------
 # GOOGLE DRIVE
@@ -446,11 +477,32 @@ if query:
     # Save user message
     st.session_state.messages.append({"role": "user", "content": query})
 
-    # ✅ Track usage
+    # -------------------------
+    # Session tracking
+    # -------------------------
     st.session_state.question_count += 1
 
     category = classify_question(query)
     st.session_state.category_stats[category] += 1
+
+    # -------------------------
+    # Persistent tracking
+    # -------------------------
+    analytics = load_analytics()
+
+    analytics["total_questions"] += 1
+    analytics["categories"][category] += 1
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    if today not in analytics["daily_usage"]:
+        analytics["daily_usage"][today] = 0
+
+    analytics["daily_usage"][today] += 1
+
+    analytics["questions"].append(query)
+
+    save_analytics(analytics)
 
     # Show user message
     with st.chat_message("user"):
@@ -474,78 +526,90 @@ if query:
     # Save assistant message
     st.session_state.messages.append({"role": "assistant", "content": answer})
 # ------------------------
-# ANALYTICS
 # ------------------------
-if st.session_state.vectorstore:
+# EXECUTIVE DASHBOARD
+# ------------------------
+if st.session_state.vectorstore and mode == "Admin":
+
+    analytics = load_analytics()
+
+    st.markdown("---")
+    st.header("📊 Executive HR Dashboard")
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Docs", len(st.session_state.vectorstore.docstore._dict))
-    col2.metric("Model", "MiniLM")
-    col3.metric("Questions", st.session_state.question_count)
 
-    import pandas as pd
-    from collections import Counter
+    col1.metric(
+        "Documents",
+        len(st.session_state.vectorstore.docstore._dict)
+    )
 
-    with st.expander("📊 Analytics Dashboard", expanded=True):
+    col2.metric(
+        "Session Questions",
+        st.session_state.question_count
+    )
 
-        # -----------------------
-        # CATEGORY DISTRIBUTION
-        # -----------------------
-        st.subheader("📊 Question Categories")
+    col3.metric(
+        "All-Time Questions",
+        analytics["total_questions"]
+    )
 
-        df = pd.DataFrame(
-            list(st.session_state.category_stats.items()),
-            columns=["Category", "Count"]
-        ).set_index("Category")
+    # --------------------
+    # DAILY TREND
+    # --------------------
+    st.subheader("📈 Daily Usage Trend")
 
-        st.bar_chart(df)
+    trend_df = pd.DataFrame(
+        list(analytics["daily_usage"].items()),
+        columns=["Date", "Questions"]
+    )
 
-        # -----------------------
-        # MOST SEARCHED CATEGORY
-        # -----------------------
-        st.subheader("🏆 Most Asked Category")
+    if not trend_df.empty:
+        trend_df["Date"] = pd.to_datetime(trend_df["Date"])
+        trend_df = trend_df.set_index("Date")
+        st.line_chart(trend_df)
+    else:
+        st.info("No usage data yet.")
 
-        if sum(st.session_state.category_stats.values()) > 0:
-            top_category = max(
-                st.session_state.category_stats,
-                key=st.session_state.category_stats.get
-            )
-            top_value = st.session_state.category_stats[top_category]
+    # --------------------
+    # CATEGORY BREAKDOWN
+    # --------------------
+    st.subheader("📊 Search Categories")
 
-            st.success(f"🔥 {top_category} ({top_value} questions)")
-        else:
-            st.info("No data yet")
+    cat_df = pd.DataFrame(
+        list(analytics["categories"].items()),
+        columns=["Category", "Count"]
+    ).set_index("Category")
 
-        # -----------------------
-        # TOP QUESTIONS
-        # -----------------------
-        st.subheader("💬 Top Asked Questions")
+    st.bar_chart(cat_df)
 
-        user_questions = [
-            msg["content"]
-            for msg in st.session_state.messages
-            if msg["role"] == "user"
-        ]
+    # --------------------
+    # TOP SEARCHES
+    # --------------------
+    st.subheader("🔥 Top Questions")
 
-        if user_questions:
-            top_q = Counter(user_questions).most_common(5)
+    top_q = Counter(
+        analytics["questions"]
+    ).most_common(5)
 
-            for q, count in top_q:
-                st.write(f"• {q} ({count}x)")
-        else:
-            st.info("No questions asked yet")
+    if top_q:
+        for q, count in top_q:
+            st.write(f"• {q} ({count}x)")
+    else:
+        st.info("No questions yet.")
 
-        # -----------------------
-        # SESSION SUMMARY
-        # -----------------------
-        st.subheader("📈 Session Summary")
+    # --------------------
+    # AI INSIGHT
+    # --------------------
+    st.subheader("🧠 AI Insight")
 
-        total_q = st.session_state.question_count
-        unique_q = len(set(user_questions))
+    top_cat = max(
+        analytics["categories"],
+        key=analytics["categories"].get
+    )
 
-        colA, colB = st.columns(2)
-        colA.metric("Total Questions", total_q)
-        colB.metric("Unique Questions", unique_q)
+    st.success(
+        f"Employees most frequently ask about **{top_cat}**."
+    )
 
 # ------------------------
 # FOOTER
