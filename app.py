@@ -143,7 +143,13 @@ def sync_google_drive():
             loader = Docx2txtLoader(path)
 
         try:
-            docs.extend(loader.load())
+            loaded_docs = loader.load()
+
+            for doc in loaded_docs:
+                doc.metadata["source_name"] = file["name"]
+
+            docs.extend(loaded_docs)
+
         except Exception as e:
             print(f"Error loading {file['name']}: {e}")
 
@@ -373,7 +379,12 @@ with st.sidebar:
                     loader = Docx2txtLoader(path)
 
                 try:
-                    docs.extend(loader.load())
+                    loaded_docs = loader.load()
+                    for doc in loaded_docs:
+                        doc.metadata["source_name"] = file.name
+                    docs.extend(loaded_docs)
+
+
                 except Exception as e:
                     st.error(f"Error loading {file.name}: {e}")
 
@@ -527,11 +538,17 @@ if query:
 
         placeholder.markdown(answer)
 
-        # 📚 Show sources safely
         if sources:
-            with st.expander("Sources"):
+            with st.expander("📚 Sources"):
                 for d in sources:
-                    st.write(d.page_content[:300])
+                    source_name = d.metadata.get(
+                        "source_name",
+                        "Unknown document"
+                    )
+
+                    st.markdown(f"**📄 {source_name}**")
+                    st.caption(d.page_content[:300] + "...")
+                    st.markdown("---")
 
     # Save assistant message
     st.session_state.messages.append({"role": "assistant", "content": answer})
