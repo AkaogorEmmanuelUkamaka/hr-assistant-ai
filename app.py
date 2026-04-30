@@ -25,7 +25,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
-from transformers import pipeline
 
 # ------------------------
 # CONFIG
@@ -36,9 +35,9 @@ SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 METADATA_FILE = "doc_metadata.json"
 
 import time
-import speech_recognition as sr
+
 from gtts import gTTS
-from streamlit_mic_recorder import mic_recorder
+
 
 # ------------------------
 # HASHING + METADATA
@@ -65,7 +64,8 @@ def save_metadata(metadata):
 
     with open(METADATA_FILE, "w") as f:
         json.dump(metadata, f, indent=2)
-        # ------------------------
+
+# ------------------------
 # ANALYTICS STORAGE
 # ------------------------
 ANALYTICS_FILE = "analytics.json"
@@ -440,10 +440,12 @@ prompt = PromptTemplate(template=prompt_template, input_variables=["context","qu
 # ------------------------
 # ------------------------
 # QA ENGINE
-# ------------------------
 def get_answer(query):
+    if not query:
+        return "Please ask a question.", []
+
     if st.session_state.vectorstore is None:
-        return "Please upload documents first.", []
+        return "Please upload documents first before asking questions.", []
 
     docs_scores = st.session_state.vectorstore.similarity_search_with_score(query, k=6)
     filtered = [d for d, s in docs_scores if s < 1.2]
@@ -454,8 +456,9 @@ def get_answer(query):
     context = "\n\n".join(d.page_content for d in filtered)
 
     history = "\n".join(
-        f"User: {item['user']}\nAI: {item['ai']}"
+        f"User: {item.get('user','')}\nAI: {item.get('ai','')}"
         for item in st.session_state.chat_history[-5:]
+        if isinstance(item, dict)
     )
 
     final_prompt = prompt.format(
@@ -466,20 +469,7 @@ def get_answer(query):
 
     answer = llm(final_prompt)
 
-    # STREAMING EFFECT
-    placeholder = st.empty()
-    typed_text = ""
-
-    words = answer.split()
-
-    for i, word in enumerate(words):
-        typed_text += word + " "
-        placeholder.markdown(typed_text + "▌")
-        time.sleep(0.03)
-
-    placeholder.markdown(typed_text.strip())
-
-    # MEMORY UPDATE
+    # Save memory
     st.session_state.chat_history.append({
         "user": query,
         "ai": answer
@@ -495,31 +485,9 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-voice_data = mic_recorder(
-    start_prompt="🎤 Start recording",
-    stop_prompt="⏹️ Stop recording",
-    key="recorder"
-)
 
 query = st.chat_input("Ask HR anything...")
-
-# Convert voice to text
-if voice_data:
-    with open("temp_audio.wav", "wb") as f:
-        f.write(voice_data["bytes"])
-
-    recognizer = sr.Recognizer()
-
-    try:
-        with sr.AudioFile("temp_audio.wav") as source:
-            audio = recognizer.record(source)
-
-        query = recognizer.recognize_google(audio)
-
-        st.success(f"🎙️ You said: {query}")
-
-    except Exception as e:
-        st.error("Could not transcribe audio.")
+play_audio = st.checkbox("🔊 Play voice response", value=True)
 
 if query:
 
@@ -553,7 +521,8 @@ if query:
     with st.chat_message("user"):
         st.write(query)
 
-    # Assistant response
+# Assistant response
+if query:
     with st.chat_message("assistant"):
         placeholder = st.empty()
         placeholder.markdown("🤖 Thinking...")
@@ -562,33 +531,36 @@ if query:
 
         placeholder.markdown(answer)
 
-        # Convert answer to speech
-        tts = gTTS(answer)
-        tts.save("response.mp3")
+        # 🔊 AUDIO
+        if play_audio and answer:
+            tts = gTTS(answer)
+            filename = f"response_{int(time.time())}.mp3"
+            tts.save(filename)
 
-        with open("response.mp3", "rb") as audio_file:
-            audio_bytes = audio_file.read()
+            with open(filename, "rb") as audio_file:
+                audio_bytes = audio_file.read()
 
-        st.audio(audio_bytes, format="audio/mp3")
+            st.audio(audio_bytes, format="audio/mp3")
 
-        # Sources
+            try:
+                os.remove(filename)
+            except:
+                pass
+
+        # 📚 SOURCES
         if sources:
             with st.expander("📚 Sources"):
                 for d in sources:
-                    source_name = d.metadata.get(
-                        "source_name",
-                        "Unknown document"
-                    )
+                    source_name = d.metadata.get("source_name", "Unknown document")
 
                     st.markdown(f"**📄 {source_name}**")
                     st.caption(d.page_content[:300] + "...")
                     st.markdown("---")
 
-    # Save assistant message
+    # ✅ SAVE MESSAGE ONLY ONCE
     st.session_state.messages.append(
         {"role": "assistant", "content": answer}
     )
-
 
 # ------------------------
 # ------------------------

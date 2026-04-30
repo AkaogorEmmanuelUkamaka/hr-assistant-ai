@@ -1,14 +1,14 @@
 {
-  "total_questions": 12,
+  "total_questions": 16,
   "daily_usage": {
     "2026-04-29": 2,
-    "2026-04-30": 10
+    "2026-04-30": 14
   },
   "categories": {
-    "Leave": 6,
+    "Leave": 9,
     "Benefits": 1,
     "Attendance": 0,
-    "Other": 5
+    "Other": 6
   },
   "questions": [
     "What is leave?",
@@ -22,6 +22,10 @@
     "What is leave?",
     "WHat is policy",
     "Hello",
+    "What is leave?",
+    "What is policy",
+    "What is leave",
+    "What is leave",
     "What is leave?"
   ]
 }
