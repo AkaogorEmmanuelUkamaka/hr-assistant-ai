@@ -195,6 +195,9 @@ with st.expander("🚀 Roadmap"):
 # ------------------------
 if "vectorstore" not in st.session_state:
     st.session_state.vectorstore = None
+    
+if "uploaded_file_names" not in st.session_state:
+    st.session_state.uploaded_file_names = []    
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -302,7 +305,6 @@ with st.sidebar:
             doc_count = len(st.session_state.vectorstore.docstore._dict)
         except:
             doc_count = "Unknown"
-
         st.success(f"📄 Documents Indexed: {doc_count}")
     else:
         st.info("📄 Documents Indexed: 0")
@@ -318,39 +320,44 @@ with st.sidebar:
     st.markdown("---")
 
     # =========================
-# =========================
-    # MODES (FIXED STRUCTURE)
+    # MODES
     # =========================
 
     if mode == "Employee":
-        st.info("👤 Employee Mode: Ask questions and view policies only.")
-
-        if os.path.exists("faiss_index"):
-            st.success("📚 Knowledge Base Ready")
-        else:
-            st.warning("📂 Knowledge Base not ready")
+        st.info("👤 Employee Mode: Ask questions only.")
 
     elif mode == "Admin":
-        st.info("🛠️ Admin Mode: Manage documents and sync knowledge base.")
+        st.info("🛠️ Admin Mode: Manage documents.")
 
         # 🔄 Sync button
         if "google" in st.secrets:
             if st.button("🔄 Sync Google Drive"):
                 sync_google_drive_threaded()
 
-        # 📤 Upload
+        # 📤 Upload (NOW CORRECTLY INSIDE ADMIN + SIDEBAR)
         uploaded_files = st.file_uploader(
             "Upload HR docs",
             type=["pdf", "txt", "docx"],
             accept_multiple_files=True
         )
 
+        # ✅ Show uploaded files
+        if st.session_state.uploaded_file_names:
+            st.markdown("### 📂 Uploaded Documents")
+            for name in st.session_state.uploaded_file_names:
+                st.write(f"📄 {name}")
+
+        # ✅ Process uploads
         if uploaded_files:
             existing_metadata = load_metadata()
             new_metadata, docs, changes_detected = {}, [], False
 
             for file in uploaded_files:
                 file_bytes = file.read()
+
+                if file.name not in st.session_state.uploaded_file_names:
+                    st.session_state.uploaded_file_names.append(file.name)
+
                 file_hash = get_file_hash(file_bytes)
                 new_metadata[file.name] = file_hash
 
@@ -361,7 +368,6 @@ with st.sidebar:
                     tmp.write(file_bytes)
                     path = tmp.name
 
-                # Choose the right loader
                 if file.name.endswith(".pdf"):
                     loader = PyPDFLoader(path)
                 elif file.name.endswith(".txt"):
@@ -369,16 +375,15 @@ with st.sidebar:
                 else:
                     loader = Docx2txtLoader(path)
 
-                #IMPORTANT: This must be indented inside the 'for' loop
                 try:
                     docs.extend(loader.load())
                 except Exception as e:
                     st.error(f"Error loading {file.name}: {e}")
 
-            #IMPORTANT: This must be indented inside 'if uploaded_files' 
-            # but OUTSIDE the 'for' loop
             if changes_detected and docs:
-                with st.spinner("Updating knowledge base..."):
+                with st.spinner("🧠 Absorbing document into HR brain..."):
+                    time.sleep(1)
+
                     splitter = RecursiveCharacterTextSplitter(
                         chunk_size=500,
                         chunk_overlap=50
@@ -386,16 +391,24 @@ with st.sidebar:
 
                     chunks = splitter.split_documents(docs)
 
-                    st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+                    if st.session_state.vectorstore is None:
+                        st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+                    else:
+                        new_vectorstore = FAISS.from_documents(chunks, embeddings)
+                        st.session_state.vectorstore.merge_from(new_vectorstore)
+
                     st.session_state.vectorstore.save_local("faiss_index")
 
                     save_metadata(new_metadata)
 
-                    st.success("Knowledge base updated ✅")
-                    st.rerun() 
+                    st.success("📚 Document absorbed into knowledge base")
+                    st.balloons()
 
-    # ===== FOOTER VERSION BADGE (Indented to stay in sidebar) =====
+                    st.rerun()
+
+    # ===== FOOTER =====
     st.markdown("---")
+
     st.caption("HR Assistant v1.1 • Google Drive Sync • Built with Streamlit, FAISS & LangChain")
    
 # ------------------------
