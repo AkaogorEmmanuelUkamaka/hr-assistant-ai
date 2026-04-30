@@ -252,9 +252,6 @@ llm = load_llm()
 # ------------------------
 # VECTORSTORE
 # ------------------------
-# ------------------------
-# VECTORSTORE (FIXED)
-# ------------------------
 if "vectorstore" not in st.session_state:
     st.session_state.vectorstore = None
 
