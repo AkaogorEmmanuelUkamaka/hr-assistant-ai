@@ -35,7 +35,10 @@ GOOGLE_DRIVE_FOLDER_ID = "1j5btciU2XzsdVuwjBwp-rjg7RFuxhslG"
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 METADATA_FILE = "doc_metadata.json"
 
-import time  
+import time
+import speech_recognition as sr
+from gtts import gTTS
+from streamlit_mic_recorder import mic_recorder
 
 # ------------------------
 # HASHING + METADATA
@@ -492,25 +495,47 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
+voice_data = mic_recorder(
+    start_prompt="🎤 Start recording",
+    stop_prompt="⏹️ Stop recording",
+    key="recorder"
+)
+
 query = st.chat_input("Ask HR anything...")
 
-if query:
-    # Save user message
-    st.session_state.messages.append({"role": "user", "content": query})
+# Convert voice to text
+if voice_data:
+    with open("temp_audio.wav", "wb") as f:
+        f.write(voice_data["bytes"])
 
-    # -------------------------
+    recognizer = sr.Recognizer()
+
+    try:
+        with sr.AudioFile("temp_audio.wav") as source:
+            audio = recognizer.record(source)
+
+        query = recognizer.recognize_google(audio)
+
+        st.success(f"🎙️ You said: {query}")
+
+    except Exception as e:
+        st.error("Could not transcribe audio.")
+
+if query:
+
+    # Save user message
+    st.session_state.messages.append(
+        {"role": "user", "content": query}
+    )
+
     # Session tracking
-    # -------------------------
     st.session_state.question_count += 1
 
     category = classify_question(query)
     st.session_state.category_stats[category] += 1
 
-    # -------------------------
     # Persistent tracking
-    # -------------------------
     analytics = load_analytics()
-
     analytics["total_questions"] += 1
     analytics["categories"][category] += 1
 
@@ -520,7 +545,6 @@ if query:
         analytics["daily_usage"][today] = 0
 
     analytics["daily_usage"][today] += 1
-
     analytics["questions"].append(query)
 
     save_analytics(analytics)
@@ -529,7 +553,7 @@ if query:
     with st.chat_message("user"):
         st.write(query)
 
-    # Generate assistant response
+    # Assistant response
     with st.chat_message("assistant"):
         placeholder = st.empty()
         placeholder.markdown("🤖 Thinking...")
@@ -538,6 +562,16 @@ if query:
 
         placeholder.markdown(answer)
 
+        # Convert answer to speech
+        tts = gTTS(answer)
+        tts.save("response.mp3")
+
+        with open("response.mp3", "rb") as audio_file:
+            audio_bytes = audio_file.read()
+
+        st.audio(audio_bytes, format="audio/mp3")
+
+        # Sources
         if sources:
             with st.expander("📚 Sources"):
                 for d in sources:
@@ -551,7 +585,11 @@ if query:
                     st.markdown("---")
 
     # Save assistant message
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+    st.session_state.messages.append(
+        {"role": "assistant", "content": answer}
+    )
+
+
 # ------------------------
 # ------------------------
 # EXECUTIVE DASHBOARD

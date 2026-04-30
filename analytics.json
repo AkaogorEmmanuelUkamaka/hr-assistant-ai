@@ -1,0 +1,27 @@
+{
+  "total_questions": 12,
+  "daily_usage": {
+    "2026-04-29": 2,
+    "2026-04-30": 10
+  },
+  "categories": {
+    "Leave": 6,
+    "Benefits": 1,
+    "Attendance": 0,
+    "Other": 5
+  },
+  "questions": [
+    "What is leave?",
+    "What is policy?",
+    "Hello",
+    "Hi",
+    "What is leave?",
+    "What is leave?",
+    "What is benefits",
+    "What is leave?",
+    "What is leave?",
+    "WHat is policy",
+    "Hello",
+    "What is leave?"
+  ]
+}

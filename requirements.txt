@@ -15,3 +15,5 @@ SpeechRecognition
 pydub
 docx2txt
 pypdf
+streamlit-mic-recorder
+gtts
