@@ -194,10 +194,8 @@ st.markdown(
 
 with st.expander("🚀 Roadmap"):
     st.markdown("""
-    - 🎤 Voice interaction (speech-to-text + audio responses)
     - 💬 Slack / Teams integration
     - 🔐 Employee authentication
-    - 📊 Advanced HR analytics dashboard
     """)
 # ------------------------
 # SESSION STATE
@@ -223,6 +221,9 @@ if "category_stats" not in st.session_state:
         "Attendance": 0,
         "Other": 0
     }
+
+if "admin_authenticated" not in st.session_state:
+    st.session_state.admin_authenticated = False
 
 # ------------------------
 # CLASSIFIER
@@ -285,6 +286,7 @@ if "google" in st.secrets:
         threading.Thread(target=sync_google_drive, daemon=True).start()
 
 # ------------------------
+# ------------------------
 # SIDEBAR
 # ------------------------
 with st.sidebar:
@@ -326,32 +328,52 @@ with st.sidebar:
     st.markdown("---")
 
     # =========================
-    # MODES
+    # MODES  ✅ MUST BE INSIDE SIDEBAR
     # =========================
 
     if mode == "Employee":
         st.info("👤 Employee Mode: Ask questions only.")
 
     elif mode == "Admin":
-        st.info("🛠️ Admin Mode: Manage documents.")
 
-        # 🔄 Sync button
-        if "google" in st.secrets:
-            if st.button("🔄 Sync Google Drive"):
-                sync_google_drive_threaded()
+        # 🔐 NOT LOGGED IN
+        if not st.session_state.admin_authenticated:
 
-        # 📤 Upload (NOW CORRECTLY INSIDE ADMIN + SIDEBAR)
-        uploaded_files = st.file_uploader(
-            "Upload HR docs",
-            type=["pdf", "txt", "docx"],
-            accept_multiple_files=True
-        )
+            st.warning("🔐 Admin access required")
 
-        # ✅ Show uploaded files
-        if st.session_state.uploaded_file_names:
-            st.markdown("### 📂 Uploaded Documents")
-            for name in st.session_state.uploaded_file_names:
-                st.write(f"📄 {name}")
+            password = st.text_input("Enter Admin Password", type="password")
+
+            if st.button("Login"):
+                if password == st.secrets["ADMIN_PASSWORD"]:
+                    st.session_state.admin_authenticated = True
+                    st.success("✅ Access granted")
+                    st.rerun()
+                else:
+                    st.error("❌ Incorrect password")
+
+        # ✅ LOGGED IN
+        else:
+            st.success("🛠️ Admin Mode: Access granted")
+
+            if st.button("Logout"):
+                st.session_state.admin_authenticated = False
+                st.rerun()
+
+            if "google" in st.secrets:
+                if st.button("🔄 Sync Google Drive"):
+                    sync_google_drive_threaded()
+
+            uploaded_files = st.file_uploader(
+                "Upload HR docs",
+                type=["pdf", "txt", "docx"],
+                accept_multiple_files=True
+            )
+
+            if st.session_state.uploaded_file_names:
+                st.markdown("### 📂 Uploaded Documents")
+                for name in st.session_state.uploaded_file_names:
+                    st.write(f"📄 {name}")
+
 
         # ✅ Process uploads
         if uploaded_files:
@@ -386,7 +408,6 @@ with st.sidebar:
                     for doc in loaded_docs:
                         doc.metadata["source_name"] = file.name
                     docs.extend(loaded_docs)
-
 
                 except Exception as e:
                     st.error(f"Error loading {file.name}: {e}")
@@ -566,7 +587,7 @@ if query:
 # ------------------------
 # EXECUTIVE DASHBOARD
 # ------------------------
-if st.session_state.vectorstore and mode == "Admin":
+if st.session_state.vectorstore and mode == "Admin" and st.session_state.admin_authenticated:
 
     analytics = load_analytics()
 
