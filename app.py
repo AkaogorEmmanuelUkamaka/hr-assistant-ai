@@ -376,69 +376,82 @@ with st.sidebar:
                 for name in st.session_state.uploaded_file_names:
                     st.write(f"📄 {name}")
 
+
             # ✅ Process uploads
             if uploaded_files:
                 existing_metadata = load_metadata()
                 new_metadata, docs, changes_detected = {}, [], False
 
+                for file in uploaded_files:
+                    file_bytes = file.read()
 
-            for file in uploaded_files:
-                file_bytes = file.read()
+                    if file.name not in st.session_state.uploaded_file_names:
+                        st.session_state.uploaded_file_names.append(file.name)
 
-                if file.name not in st.session_state.uploaded_file_names:
-                    st.session_state.uploaded_file_names.append(file.name)
+                    file_hash = get_file_hash(file_bytes)
+                    new_metadata[file.name] = file_hash
 
-                file_hash = get_file_hash(file_bytes)
-                new_metadata[file.name] = file_hash
+                    if (
+                        file.name not in existing_metadata
+                        or existing_metadata.get(file.name) != file_hash
+                    ):
+                        changes_detected = True
 
-                if file.name not in existing_metadata or existing_metadata.get(file.name) != file_hash:
-                    changes_detected = True
+                    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                        tmp.write(file_bytes)
+                        path = tmp.name
 
-                with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                    tmp.write(file_bytes)
-                    path = tmp.name
-
-                if file.name.endswith(".pdf"):
-                    loader = PyPDFLoader(path)
-                elif file.name.endswith(".txt"):
-                    loader = TextLoader(path)
-                else:
-                    loader = Docx2txtLoader(path)
-
-                try:
-                    loaded_docs = loader.load()
-                    for doc in loaded_docs:
-                        doc.metadata["source_name"] = file.name
-                    docs.extend(loaded_docs)
-
-                except Exception as e:
-                    st.error(f"Error loading {file.name}: {e}")
-
-            if changes_detected and docs:
-                with st.spinner("🧠 Absorbing document into HR brain..."):
-                    time.sleep(1)
-
-                    splitter = RecursiveCharacterTextSplitter(
-                        chunk_size=500,
-                        chunk_overlap=50
-                    )
-
-                    chunks = splitter.split_documents(docs)
-
-                    if st.session_state.vectorstore is None:
-                        st.session_state.vectorstore = FAISS.from_documents(chunks, embeddings)
+                    if file.name.endswith(".pdf"):
+                        loader = PyPDFLoader(path)
+                    elif file.name.endswith(".txt"):
+                        loader = TextLoader(path)
                     else:
-                        new_vectorstore = FAISS.from_documents(chunks, embeddings)
-                        st.session_state.vectorstore.merge_from(new_vectorstore)
+                        loader = Docx2txtLoader(path)
 
-                    st.session_state.vectorstore.save_local("faiss_index")
+                    try:
+                        loaded_docs = loader.load()
+                        for doc in loaded_docs:
+                            doc.metadata["source_name"] = file.name
+                        docs.extend(loaded_docs)
 
-                    save_metadata(new_metadata)
+                    except Exception as e:
+                        st.error(f"Error loading {file.name}: {e}")
 
-                    st.success("📚 Document absorbed into knowledge base")
-                    st.balloons()
+                    finally:
+                        if os.path.exists(path):
+                            os.remove(path)
 
-                    st.rerun()
+                if changes_detected and docs:
+                    with st.spinner("🧠 Absorbing document into HR brain..."):
+                        time.sleep(1)
+
+                        splitter = RecursiveCharacterTextSplitter(
+                            chunk_size=500,
+                            chunk_overlap=50
+                        )
+
+                        chunks = splitter.split_documents(docs)
+
+                        if st.session_state.vectorstore is None:
+                            st.session_state.vectorstore = FAISS.from_documents(
+                                chunks, embeddings
+                            )
+                        else:
+                            new_vectorstore = FAISS.from_documents(
+                                chunks, embeddings
+                            )
+                            st.session_state.vectorstore.merge_from(
+                                new_vectorstore
+                            )
+
+                        st.session_state.vectorstore.save_local("faiss_index")
+                        save_metadata(new_metadata)
+
+                        st.success("📚 Document absorbed into knowledge base")
+                        st.balloons()
+
+                        st.rerun()
+
 
     # ===== FOOTER =====
     st.markdown("---")
