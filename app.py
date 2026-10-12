@@ -194,8 +194,10 @@ st.markdown(
 
 with st.expander("🚀 Roadmap"):
     st.markdown("""
+    - 🎤 Voice interaction (speech-to-text + audio responses)
     - 💬 Slack / Teams integration
     - 🔐 Employee authentication
+    - 📊 Advanced HR analytics dashboard
     """)
 # ------------------------
 # SESSION STATE
@@ -374,11 +376,11 @@ with st.sidebar:
                 for name in st.session_state.uploaded_file_names:
                     st.write(f"📄 {name}")
 
+            # ✅ Process uploads
+            if uploaded_files:
+                existing_metadata = load_metadata()
+                new_metadata, docs, changes_detected = {}, [], False
 
-        # ✅ Process uploads
-        if uploaded_files:
-            existing_metadata = load_metadata()
-            new_metadata, docs, changes_detected = {}, [], False
 
             for file in uploaded_files:
                 file_bytes = file.read()
